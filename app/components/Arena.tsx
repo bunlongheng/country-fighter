@@ -105,7 +105,10 @@ function Scene({
     // guarantees a fight always ends in bounded real time even if the GPU is so
     // starved it barely renders a frame - the storm can't stall behind the sim.
     if (running && !s.ended) {
-      const realDt = Math.min(rawDelta, 0.5); // bound a huge tab-switch delta
+      // Bound generously so the match clock still tracks real wall-clock time
+      // under a very low frame rate (e.g. software-GL CI), while a huge
+      // tab-switch delta still converges over a couple of frames.
+      const realDt = Math.min(rawDelta, 2);
       s.elapsed += realDt;
 
       let dmgA = 0;

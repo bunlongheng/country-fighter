@@ -39,10 +39,10 @@ test("a full match runs to a winner and can restart", async ({ page }) => {
   // Health bars are shown during the fight.
   await expect(page.getByRole("progressbar").first()).toBeVisible();
 
-  // The match is hard-bounded to ~15s of play by the storm backstop; allow
-  // generous headroom for the WebGL canvas to warm up under a slow headless
-  // (software) GL context.
-  await expect(page.getByText("Winner")).toBeVisible({ timeout: 40_000 });
+  // The match clock is hard-bounded by the storm backstop and tracks real
+  // wall-clock time, so it always resolves - but a software-GL CI runner can
+  // render very slowly, so allow generous headroom.
+  await expect(page.getByText("Winner")).toBeVisible({ timeout: 60_000 });
   await expect(page.getByRole("button", { name: "New Battle" })).toBeVisible();
 
   await page.getByRole("button", { name: "New Battle" }).click();
