@@ -12,10 +12,6 @@ export const metadata: Metadata = {
   title: "Country Fighter",
   description:
     "Pick any 2 of the world's 194 countries, watch their glossy 3D flag marbles battle it out in a bouncy arena, and crown a champion. A tiny, playful game for kids.",
-  icons: {
-    icon: "/icon.svg",
-    apple: "/icon.svg",
-  },
 };
 
 export const viewport: Viewport = {
