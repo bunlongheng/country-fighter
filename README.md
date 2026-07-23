@@ -55,6 +55,33 @@ Every one of these lives behind a pure function with tests (`tests/physics.test.
 
 ---
 
+## Architecture
+
+One static route mounts a small client state-machine that hands off between four screens. The heavy WebGL code is code-split so it never loads until a battle needs it, and the only stateful logic lives as pure, tested functions.
+
+| Layer | Role |
+| --- | --- |
+| `app/page.tsx` + `layout.tsx` | Static server shell, metadata, font, icon |
+| `Game.tsx` | Phase state machine: `select -> ready -> fight -> victory` |
+| `components/*` | Picker, marble, arena, health bars, victory (one concern each) |
+| `Arena.tsx` | The battle: fixed-timestep sim, walls, impact FX |
+| `lib/physics.ts` | Pure, dependency-free, unit-tested simulation core |
+| `data/countries.ts` | 194 countries (code, name, accent hue) |
+
+The two 3D canvases (`MarblePreview`, `Arena`) are `next/dynamic` with `ssr: false`, so `three` / `drei` stay out of the server bundle and the first paint.
+
+## Design decisions and trade-offs
+
+| Decision | Chosen | Alternative | Why | Cost we accept |
+| --- | --- | --- | --- | --- |
+| Flags | Self-hosted PNGs | flagcdn / remote CDN | No third-party dependency; CSP stays `'self'` | 816KB committed to the repo |
+| Reflections | Procedural in-scene env | HDR environment map | Network-free, CSP-clean glossy look | Slightly simpler reflections |
+| Match ending | Real-time storm backstop | Pure collision KO | Every match provably terminates, even on a slow GPU | A late "sudden-death" drain phase |
+| Physics engine | Hand-written pure core | rapier / cannon | Fully unit-testable, tiny, tunable for feel | No general rigid-body support |
+| Winner rule | Higher remaining health | First to zero | A clear winner with a visible health gap, never a tie | Determinism over realism |
+
+---
+
 ## Tech stack
 
 | Layer | Choice |
