@@ -15,17 +15,14 @@ test("search narrows the country grid", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Japan" })).toHaveCount(0);
 });
 
-test("picking two countries reveals the versus button and the ready screen", async ({
+test("picking two countries jumps straight to the ready screen", async ({
   page,
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Brazil" }).click();
   await page.getByRole("button", { name: "Argentina" }).click();
 
-  const vs = page.getByRole("button", { name: /Brazil vs Argentina|Argentina vs Brazil/ });
-  await expect(vs).toBeVisible();
-  await vs.click();
-
+  // No intermediate button - the 2nd pick advances to the marbles directly.
   await expect(page.getByRole("button", { name: "Fight!" })).toBeVisible();
 });
 
@@ -33,7 +30,6 @@ test("a full match runs to a winner and can restart", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Brazil" }).click();
   await page.getByRole("button", { name: "Argentina" }).click();
-  await page.getByRole("button", { name: /vs/ }).click();
   await page.getByRole("button", { name: "Fight!" }).click();
 
   // Health bars are shown during the fight.

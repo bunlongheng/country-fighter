@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MAX_HEALTH } from "@/lib/physics";
 import { sound } from "@/lib/sound";
 import { COUNTRIES, type Country } from "../data/countries";
@@ -43,6 +43,14 @@ export default function Game() {
     setPicks([COUNTRIES[i], COUNTRIES[j]]);
   }, []);
 
+  // Picking the 2nd country jumps straight to the marbles - no extra button.
+  useEffect(() => {
+    if (phase === "select" && picks.length === 2) {
+      sound.whoosh();
+      setPhase("ready");
+    }
+  }, [picks, phase]);
+
   const onHealth = useCallback((ha: number, hb: number) => setHealth([ha, hb]), []);
   const onEnd = useCallback((w: 0 | 1) => {
     setWinnerIdx(w);
@@ -70,19 +78,6 @@ export default function Game() {
       {phase === "select" && (
         <div className="flex h-full flex-col">
           <CountryPicker picks={picks} onToggle={toggle} onRandom={randomize} />
-          {picks.length === 2 && (
-            <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center bg-gradient-to-t from-black via-black/90 to-transparent p-5">
-              <button
-                onClick={() => {
-                  sound.whoosh();
-                  setPhase("ready");
-                }}
-                className="rise rounded-full bg-white px-10 py-3.5 text-base font-bold text-black transition hover:scale-105 active:scale-95"
-              >
-                {a.name} vs {b.name} →
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -106,6 +101,7 @@ export default function Game() {
             <button
               onClick={() => {
                 sound.click();
+                setPicks([]);
                 setPhase("select");
               }}
               className="rounded-full border border-white/20 px-6 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/10"
