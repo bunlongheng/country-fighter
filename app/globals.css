@@ -4,16 +4,41 @@
   --bg: #000000;
   --ink: #ffffff;
   --muted: #8a8f98;
+  /* Dark form controls + scrollbars everywhere */
+  color-scheme: dark;
 }
 
 * {
   box-sizing: border-box;
+  /* Firefox: dark thin scrollbar */
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
 }
 
 html,
 body {
   overflow-x: hidden;
   background: var(--bg);
+  /* No white rubber-band flash when scrolling to the edges */
+  overscroll-behavior: none;
+}
+
+/* WebKit: dark, subtle scrollbar (no bright track) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+  background-clip: padding-box;
 }
 
 body {

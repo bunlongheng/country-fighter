@@ -2,12 +2,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ARENA_HALF,
+  aimVelocity,
   bounceWalls,
   clampSpeed,
   damageFrom,
   decideWinner,
   integrate,
   len,
+  projectileHits,
   separateAndBounce,
   splitDamage,
   steer,
@@ -143,4 +145,23 @@ test("decideWinner returns the fighter with more health", () => {
   assert.equal(decideWinner(50, 30), 0);
   assert.equal(decideWinner(0, 12), 1);
   assert.equal(decideWinner(20, 0), 0);
+});
+
+test("aimVelocity points at the target with the given speed", () => {
+  const v = aimVelocity({ x: 0, y: 0 }, { x: 3, y: 4 }, 10);
+  // direction (3,4)/5 scaled by 10 -> (6, 8)
+  assert.ok(Math.abs(v.x - 6) < 1e-9);
+  assert.ok(Math.abs(v.y - 8) < 1e-9);
+  assert.ok(Math.abs(len(v) - 10) < 1e-9);
+});
+
+test("aimVelocity is safe when from equals to", () => {
+  const v = aimVelocity({ x: 2, y: 2 }, { x: 2, y: 2 }, 10);
+  assert.ok(Number.isFinite(v.x) && Number.isFinite(v.y));
+});
+
+test("projectileHits is true on contact and false when far", () => {
+  const f = mk({ pos: { x: 0, y: 0 }, radius: 0.9 });
+  assert.equal(projectileHits(1.0, 0, 0.3, f), true); // 1.0 < 0.9 + 0.3
+  assert.equal(projectileHits(2.0, 0, 0.3, f), false); // 2.0 > 1.2
 });

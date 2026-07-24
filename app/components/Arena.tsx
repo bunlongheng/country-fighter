@@ -1,7 +1,7 @@
 "use client";
 
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { RoundedBox } from "@react-three/drei";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { OrbitControls, RoundedBox } from "@react-three/drei";
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import Marble from "./Marble";
@@ -11,35 +11,56 @@ import {
   HIT_THRESHOLD,
   MARBLE_RADIUS,
   MAX_HEALTH,
+  PROJECTILE_DAMAGE,
+  PROJECTILE_LIFE,
+  PROJECTILE_RADIUS,
+  PROJECTILE_SPEED,
+  SHOOT_COOLDOWN,
+  aimVelocity,
   bounceWalls,
   clampSpeed,
   damageFrom,
   decideWinner,
   integrate,
+  projectileHits,
   separateAndBounce,
   splitDamage,
   steer,
   stormDamage,
   type Fighter,
 } from "@/lib/physics";
+import { sound } from "@/lib/sound";
 import type { Country } from "../data/countries";
 
-const MIN_SPEED = 2.8;
-const MAX_SPEED = 7;
-const CHARGE = 20; // acceleration toward the opponent
+const MIN_SPEED = 3.5; // faster, more aggressive floor speed
+const MAX_SPEED = 9.5;
+const CHARGE = 28; // acceleration toward the opponent (harder charging)
 const JITTER = 5; // random wander so paths vary and a winner always emerges
 const HIT_COOLDOWN = 0.14; // min seconds between scored hits
 const WALL_H = 1.2;
 const RINGS = 8; // impact-ring pool size
+const PROJECTILES = 14; // flare pool size
+const PROJ_Y = 0.9; // height flares travel at
 const STEP = 1 / 60; // fixed physics timestep (seconds)
 const MAX_STEPS = 6; // cap substeps per frame so a stall can't spiral
 
 type Impact = { x: number; z: number; life: number; hue: number };
+type Flare = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  from: 0 | 1;
+  life: number;
+  hue: number;
+};
 
+// Random launch direction so neither side has a systematic edge.
 function makeFighter(x: number): Fighter {
+  const a = Math.random() * Math.PI * 2;
   return {
     pos: { x, y: 0 },
-    vel: { x: 0, y: x > 0 ? -1 : 1 },
+    vel: { x: Math.cos(a) * 3, y: Math.sin(a) * 3 },
     radius: MARBLE_RADIUS,
     health: MAX_HEALTH,
   };
@@ -61,8 +82,9 @@ function Scene({
   const meshA = useRef<THREE.Mesh>(null);
   const meshB = useRef<THREE.Mesh>(null);
   const ringRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const projRefs = useRef<(THREE.Mesh | null)[]>([]);
   const flashRef = useRef<THREE.PointLight>(null);
-  const { camera } = useThree();
+  const shakeGroup = useRef<THREE.Group>(null);
 
   // Simulation state lives in refs so the physics loop never triggers a render.
   const sim = useRef({
@@ -75,7 +97,11 @@ function Scene({
     acc: 0,
     elapsed: 0,
     cool: 0,
+    bounceCool: 0,
+    shootA: 0.9,
+    shootB: 0.9,
     impacts: [] as Impact[],
+    flares: [] as Flare[],
     ended: false,
   });
 
@@ -88,9 +114,13 @@ function Scene({
     sim.current.fa = makeFighter(-2.6);
     sim.current.fb = makeFighter(2.6);
     sim.current.impacts = [];
+    sim.current.flares = [];
     sim.current.acc = 0;
     sim.current.elapsed = 0;
     sim.current.cool = 0;
+    sim.current.bounceCool = 0;
+    sim.current.shootA = 0.9;
+    sim.current.shootB = 0.9;
     sim.current.ended = false;
     cbs.current.onHealth(MAX_HEALTH, MAX_HEALTH);
   }, [a.code, b.code]);
@@ -120,6 +150,7 @@ function Scene({
         s.acc -= STEP;
         steps++;
         s.cool -= STEP;
+        s.bounceCool -= STEP;
 
         // Charge at each other with a splash of random wander.
         steer(fa, fb.pos, CHARGE, STEP);
@@ -131,8 +162,12 @@ function Scene({
 
         integrate(fa, STEP);
         integrate(fb, STEP);
-        bounceWalls(fa);
-        bounceWalls(fb);
+        const wallA = bounceWalls(fa);
+        const wallB = bounceWalls(fb);
+        if ((wallA || wallB) && s.bounceCool <= 0) {
+          s.bounceCool = 0.09;
+          sound.bounce();
+        }
         clampSpeed(fa, MIN_SPEED, MAX_SPEED);
         clampSpeed(fb, MIN_SPEED, MAX_SPEED);
 
@@ -150,9 +185,48 @@ function Scene({
           s.punchA = s.punchB = 1;
           s.shake = Math.min(0.5, hit.impact * 0.05);
           s.flash = 1;
+          sound.hit(hit.impact);
         }
+
+        // Fire flares at each other on a cooldown.
+        s.shootA -= STEP;
+        s.shootB -= STEP;
+        if (s.shootA <= 0) {
+          s.shootA = SHOOT_COOLDOWN;
+          const v = aimVelocity(fa.pos, fb.pos, PROJECTILE_SPEED);
+          s.flares.push({ x: fa.pos.x, y: fa.pos.y, vx: v.x, vy: v.y, from: 0, life: PROJECTILE_LIFE, hue: a.hue });
+          sound.shoot();
+        }
+        if (s.shootB <= 0) {
+          s.shootB = SHOOT_COOLDOWN;
+          const v = aimVelocity(fb.pos, fa.pos, PROJECTILE_SPEED);
+          s.flares.push({ x: fb.pos.x, y: fb.pos.y, vx: v.x, vy: v.y, from: 1, life: PROJECTILE_LIFE, hue: b.hue });
+          sound.shoot();
+        }
+
+        // Advance flares; a hit chips the target and spawns a spark.
+        for (const p of s.flares) {
+          if (p.life <= 0) continue;
+          p.x += p.vx * STEP;
+          p.y += p.vy * STEP;
+          p.life -= STEP;
+          const target = p.from === 0 ? fb : fa;
+          if (projectileHits(p.x, p.y, PROJECTILE_RADIUS, target)) {
+            p.life = 0;
+            if (p.from === 0) dmgB += PROJECTILE_DAMAGE;
+            else dmgA += PROJECTILE_DAMAGE;
+            s.impacts.push({ x: p.x, z: p.y, life: 1, hue: p.hue });
+            if (s.impacts.length > RINGS) s.impacts.shift();
+            s.flash = Math.max(s.flash, 0.6);
+            sound.zap();
+          } else if (Math.abs(p.x) > ARENA_HALF + 0.3 || Math.abs(p.y) > ARENA_HALF + 0.3) {
+            p.life = 0;
+          }
+        }
+        if (s.flares.length > PROJECTILES) s.flares = s.flares.slice(-PROJECTILES);
       }
       if (steps >= MAX_STEPS) s.acc = 0; // drop backlog after a long stall
+      s.flares = s.flares.filter((p) => p.life > 0);
 
       // Storm backstop, on real time so it fires even when frames are scarce.
       const storm = stormDamage(s.elapsed, realDt);
@@ -208,6 +282,22 @@ function Scene({
       }
     }
 
+    // Flares: glowing spheres flying between the marbles.
+    for (let i = 0; i < PROJECTILES; i++) {
+      const mesh = projRefs.current[i];
+      const p = s.flares[i];
+      if (!mesh) continue;
+      if (p && p.life > 0) {
+        mesh.visible = true;
+        mesh.position.set(p.x, PROJ_Y, p.y);
+        const pulse = 0.8 + 0.3 * Math.sin(p.life * 30);
+        mesh.scale.setScalar(pulse);
+        (mesh.material as THREE.MeshBasicMaterial).color.setHSL(p.hue / 360, 0.95, 0.62);
+      } else {
+        mesh.visible = false;
+      }
+    }
+
     // Flash light on impact.
     if (flashRef.current) {
       flashRef.current.intensity = s.flash * 40;
@@ -216,11 +306,15 @@ function Scene({
     }
     s.flash = Math.max(0, s.flash - dt * 5);
 
-    // Camera shake, easing back to the resting framing.
-    const shx = (Math.random() - 0.5) * s.shake;
-    const shz = (Math.random() - 0.5) * s.shake;
-    camera.position.set(shx, 12.5, 6.5 + shz);
-    camera.lookAt(0, 0, 0);
+    // Impact shake jitters the arena group (not the camera) so it never fights
+    // the player's orbit control of the view.
+    if (shakeGroup.current) {
+      shakeGroup.current.position.set(
+        (Math.random() - 0.5) * s.shake,
+        0,
+        (Math.random() - 0.5) * s.shake,
+      );
+    }
     s.shake = Math.max(0, s.shake - dt * 2);
   });
 
@@ -241,6 +335,19 @@ function Scene({
   return (
     <>
       <Studio />
+      <OrbitControls
+        makeDefault
+        enablePan={false}
+        minDistance={9}
+        maxDistance={24}
+        minPolarAngle={0.15}
+        maxPolarAngle={Math.PI / 2.15}
+        enableDamping
+        dampingFactor={0.08}
+        target={[0, 0.4, 0]}
+      />
+
+      <group ref={shakeGroup}>
       <pointLight ref={flashRef} position={[0, 2, 0]} intensity={0} distance={16} />
 
       {/* Arena floor */}
@@ -286,10 +393,30 @@ function Scene({
         </mesh>
       ))}
 
+      {/* Flare (projectile) pool - bright additive glowing orbs */}
+      {Array.from({ length: PROJECTILES }).map((_, i) => (
+        <mesh
+          key={i}
+          ref={(m) => {
+            projRefs.current[i] = m;
+          }}
+          visible={false}
+        >
+          <sphereGeometry args={[PROJECTILE_RADIUS, 16, 16]} />
+          <meshBasicMaterial
+            transparent
+            opacity={0.95}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
+
       <Suspense fallback={null}>
         <Marble ref={meshA} code={a.code} hue={a.hue} />
         <Marble ref={meshB} code={b.code} hue={b.hue} />
       </Suspense>
+      </group>
     </>
   );
 }

@@ -3,9 +3,11 @@
 import dynamic from "next/dynamic";
 import { useCallback, useState } from "react";
 import { MAX_HEALTH } from "@/lib/physics";
-import type { Country } from "../data/countries";
+import { sound } from "@/lib/sound";
+import { COUNTRIES, type Country } from "../data/countries";
 import CountryPicker from "./CountryPicker";
 import HealthBars from "./HealthBars";
+import SoundToggle from "./SoundToggle";
 import VictoryOverlay from "./VictoryOverlay";
 
 // The 3D canvases are client-only (WebGL) and heavy, so they never render on the
@@ -24,25 +26,38 @@ export default function Game() {
   const toggle = useCallback((c: Country) => {
     setPicks((prev) => {
       if (prev.some((p) => p.code === c.code)) {
+        sound.deselect();
         return prev.filter((p) => p.code !== c.code);
       }
       if (prev.length >= 2) return prev;
+      sound.pick();
       return [...prev, c];
     });
+  }, []);
+
+  const randomize = useCallback(() => {
+    const i = Math.floor(Math.random() * COUNTRIES.length);
+    let j = Math.floor(Math.random() * COUNTRIES.length);
+    while (j === i) j = Math.floor(Math.random() * COUNTRIES.length);
+    sound.pick();
+    setPicks([COUNTRIES[i], COUNTRIES[j]]);
   }, []);
 
   const onHealth = useCallback((ha: number, hb: number) => setHealth([ha, hb]), []);
   const onEnd = useCallback((w: 0 | 1) => {
     setWinnerIdx(w);
     setPhase("victory");
+    sound.win();
   }, []);
 
   const startFight = () => {
     setHealth([MAX_HEALTH, MAX_HEALTH]);
     setPhase("fight");
+    sound.start();
   };
 
   const reset = () => {
+    sound.click();
     setPicks([]);
     setHealth([MAX_HEALTH, MAX_HEALTH]);
     setPhase("select");
@@ -54,11 +69,14 @@ export default function Game() {
     <main className="relative mx-auto h-[100dvh] w-full max-w-5xl overflow-hidden">
       {phase === "select" && (
         <div className="flex h-full flex-col">
-          <CountryPicker picks={picks} onToggle={toggle} />
+          <CountryPicker picks={picks} onToggle={toggle} onRandom={randomize} />
           {picks.length === 2 && (
             <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center bg-gradient-to-t from-black via-black/90 to-transparent p-5">
               <button
-                onClick={() => setPhase("ready")}
+                onClick={() => {
+                  sound.whoosh();
+                  setPhase("ready");
+                }}
                 className="rise rounded-full bg-white px-10 py-3.5 text-base font-bold text-black transition hover:scale-105 active:scale-95"
               >
                 {a.name} vs {b.name} →
@@ -86,7 +104,10 @@ export default function Game() {
           <p className="text-xs text-white/40">Drag a marble to spin it</p>
           <div className="flex gap-3">
             <button
-              onClick={() => setPhase("select")}
+              onClick={() => {
+                sound.click();
+                setPhase("select");
+              }}
               className="rounded-full border border-white/20 px-6 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/10"
             >
               Change
@@ -116,6 +137,8 @@ export default function Game() {
           )}
         </div>
       )}
+
+      <SoundToggle />
     </main>
   );
 }

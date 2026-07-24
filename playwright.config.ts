@@ -8,12 +8,12 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:3010",
+    baseURL: "http://localhost:3025",
     trace: "on-first-retry",
   },
   webServer: {
     command: "npm run dev",
-    url: "http://localhost:3010",
+    url: "http://localhost:3025",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

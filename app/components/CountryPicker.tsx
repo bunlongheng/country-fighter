@@ -7,9 +7,11 @@ import { COUNTRIES, type Country } from "../data/countries";
 export default function CountryPicker({
   picks,
   onToggle,
+  onRandom,
 }: {
   picks: Country[];
   onToggle: (c: Country) => void;
+  onRandom: () => void;
 }) {
   const [q, setQ] = useState("");
   const filtered = useMemo(() => {
@@ -35,14 +37,21 @@ export default function CountryPicker({
         </p>
       </div>
 
-      <div className="px-5 pt-4">
+      <div className="flex gap-2 px-5 pt-4">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search 194 countries…"
           aria-label="Search countries"
-          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none transition focus:border-white/30"
+          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none transition focus:border-white/30"
         />
+        <button
+          onClick={onRandom}
+          aria-label="Pick 2 random countries"
+          className="shrink-0 rounded-xl border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold transition hover:bg-white/20 active:scale-95"
+        >
+          🎲 Random
+        </button>
       </div>
 
       <div className="mt-4 grid flex-1 grid-cols-3 content-start gap-2.5 overflow-y-auto px-5 pb-28 sm:grid-cols-4 md:grid-cols-6">
@@ -67,9 +76,9 @@ export default function CountryPicker({
               <Image
                 src={`/flags/${c.code}.png`}
                 alt={c.name}
-                width={64}
-                height={42}
-                className="h-9 w-full rounded-md object-cover"
+                width={96}
+                height={64}
+                className="aspect-[3/2] w-full rounded-md object-cover shadow-sm ring-1 ring-white/10"
                 loading="lazy"
               />
               <span className="line-clamp-1 text-center text-[11px] leading-tight text-white/70">

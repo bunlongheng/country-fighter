@@ -15,21 +15,30 @@ export const MARBLE_RADIUS = 0.92;
 export const MAX_HEALTH = 100;
 
 // Collisions are slightly inelastic so the marbles stay engaged and grind at
-// each other instead of flinging into long, boring orbits.
-export const RESTITUTION = 0.6;
+// each other instead of flinging into long, boring orbits. A touch bouncier
+// now for more aggressive, energetic clashes.
+export const RESTITUTION = 0.65;
 
 // A collision at closing speed `impact` deals up to MAX_HIT damage, split
 // asymmetrically: you take more the harder the *other* marble drove into you.
-export const DAMAGE_K = 4.2;
-export const MAX_HIT = 17;
+// Kept modest so a bout is a longer war of attrition, not a couple of big hits.
+export const DAMAGE_K = 2.2;
+export const MAX_HIT = 9;
 export const HIT_THRESHOLD = 0.7; // ignore feather-light grazes
 
 // "Storm" backstop: after STORM_START seconds an escalating drain hits both
 // fighters so no match can drag on when the marbles get unlucky and keep
 // missing. The fighter already ahead on health stays ahead, so it never
 // decides the winner on its own - it just guarantees a prompt, clean finish.
-export const STORM_START = 9;
-export const STORM_RATE = 7;
+export const STORM_START = 18;
+export const STORM_RATE = 6.5;
+
+// Flares: each marble periodically fires a glowing projectile at the opponent.
+export const PROJECTILE_SPEED = 10;
+export const PROJECTILE_RADIUS = 0.3;
+export const PROJECTILE_DAMAGE = 4;
+export const PROJECTILE_LIFE = 1.5; // seconds before it fizzles out
+export const SHOOT_COOLDOWN = 1.6; // seconds between a fighter's shots
 
 export type Collision = { impact: number; aInto: number; bInto: number };
 
@@ -133,6 +142,24 @@ export function splitDamage(
 export function stormDamage(elapsed: number, dt: number): number {
   if (elapsed <= STORM_START) return 0;
   return STORM_RATE * (elapsed - STORM_START) * dt;
+}
+
+// Velocity that sends a flare from `from` straight at `to` at the given speed.
+export function aimVelocity(from: Vec, to: Vec, speed: number): Vec {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const d = Math.hypot(dx, dy) || 1;
+  return { x: (dx / d) * speed, y: (dy / d) * speed };
+}
+
+// Whether a flare at (px, py) with radius pr has struck a fighter.
+export function projectileHits(
+  px: number,
+  py: number,
+  pr: number,
+  f: Fighter,
+): boolean {
+  return Math.hypot(px - f.pos.x, py - f.pos.y) < pr + f.radius;
 }
 
 // Keep the marbles lively: never let them crawl or fly off into hyperspace.

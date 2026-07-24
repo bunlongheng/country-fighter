@@ -15,15 +15,16 @@ export default function VictoryOverlay({
   winner: Country;
   onRestart: () => void;
 }) {
+  // Gold confetti: vary lightness/saturation around a warm gold hue only.
   const pieces = useMemo(
     () =>
       CONFETTI.map((i) => ({
         left: (i * 61) % 100,
         delay: (i % 12) * 0.12,
-        hue: (winner.hue + i * 24) % 360,
+        color: `hsl(${44 + (i % 5) * 4}, ${75 + (i % 4) * 6}%, ${52 + (i % 6) * 6}%)`,
         dur: 1.8 + (i % 5) * 0.35,
       })),
-    [winner.hue],
+    [],
   );
 
   return (
@@ -35,7 +36,7 @@ export default function VictoryOverlay({
             className="absolute top-[-10%] block h-2.5 w-2.5 rounded-sm"
             style={{
               left: `${p.left}%`,
-              background: `hsl(${p.hue}, 90%, 60%)`,
+              background: p.color,
               animation: `confetti-fall ${p.dur}s ${p.delay}s cubic-bezier(0.3,0.1,0.3,1) infinite`,
             }}
           />
