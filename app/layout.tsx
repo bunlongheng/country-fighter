@@ -10,10 +10,25 @@ const fredoka = Fredoka({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://country-fighter-bheng.vercel.app"),
   title: "Country Fighter",
   description:
     "Pick any 2 of the world's 194 countries, watch their glossy 3D flag marbles battle it out in a bouncy arena, and crown a champion. A tiny, playful game for kids.",
+  applicationName: "Country Fighter",
   manifest: "/manifest.json",
+  // Big link-preview card when shared (hero auto-linked from app/opengraph-image.png).
+  openGraph: {
+    title: "Country Fighter",
+    description: "Pick 2 of 194 countries and watch their 3D flag marbles battle in a bouncy arena. Crown a champion.",
+    url: "https://country-fighter-bheng.vercel.app",
+    siteName: "Country Fighter",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Country Fighter",
+    description: "Pick 2 of 194 countries and watch their 3D flag marbles battle in a bouncy arena.",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
