@@ -43,7 +43,7 @@ export default function CountryPicker({
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search 194 countries…"
           aria-label="Search countries"
-          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none transition focus:border-white/30"
+          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-base outline-none transition focus:border-white/30"
         />
         <button
           onClick={onRandom}
